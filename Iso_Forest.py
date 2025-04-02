@@ -21,7 +21,7 @@ data = df[['Timestamp'] + features].dropna()
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(data[features])
 
-model = IsolationForest(n_estimators=100, contamination=0.01, random_state=42)
+model = IsolationForest(n_estimators=100, contamination=0.003, random_state=42)
 model.fit(X_scaled)
 
 data['anomaly_score'] = model.decision_function(X_scaled)
