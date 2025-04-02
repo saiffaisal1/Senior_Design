@@ -1,13 +1,13 @@
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
-import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-df = pd.read_csv("Data/Apr_2023.csv")
+df = pd.read_csv("Data/Apr_2023.csv")  
 df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
 df = df.dropna(subset=['Timestamp'])
 df.sort_values('Timestamp', inplace=True)
@@ -25,12 +25,23 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(data[features])
 
 iso = IsolationForest(contamination=0.003, random_state=42)
-lof = LocalOutlierFactor(n_neighbors=35, contamination=0.003, novelty=True)
 svm = OneClassSVM(nu=0.003, kernel="rbf", gamma="scale")
+lof = LocalOutlierFactor(n_neighbors=35, contamination=0.003, novelty=True)
 
 iso.fit(X_scaled)
-lof.fit(X_scaled)
 svm.fit(X_scaled)
+lof.fit(X_scaled)
+
+iso_pred = iso.predict(X_scaled)
+svm_pred = svm.predict(X_scaled)
+lof_pred = lof.predict(X_scaled)
+
+votes = np.stack([iso_pred, lof_pred, svm_pred], axis=1)
+data['ensemble_votes'] = np.sum(votes == -1, axis=1)
+data['is_ensemble_anomaly'] = data['ensemble_votes'] >= 2
+
+data['iso_score'] = iso.decision_function(X_scaled)
+data['svm_score'] = svm.decision_function(X_scaled)
 
 try:
     lof_scores = lof.decision_function(X_scaled)
@@ -39,22 +50,7 @@ except Exception as e:
     print("LOF scoring error:", e)
     lof_scores = np.full(X_scaled.shape[0], np.nan)
 
-
-iso_pred = iso.predict(X_scaled)
-lof_pred = lof.predict(X_scaled)
-svm_pred = svm.predict(X_scaled)
-
-votes = np.stack([iso_pred, lof_pred, svm_pred], axis=1)
-data['ensemble_votes'] = np.sum(votes == -1, axis=1)
-data['is_ensemble_anomaly'] = data['ensemble_votes'] >= 2 
-
-data['iso'] = iso_pred
-data['lof'] = lof_pred
-data['svm'] = svm_pred
-
-data['iso_score'] = iso.decision_function(X_scaled)
-data['svm_score'] = svm.decision_function(X_scaled)
-data['lof_score'] = lof.decision_function(X_scaled)
+data['lof_score'] = lof_scores
 
 voltage_anomalies = data[data['is_ensemble_anomaly'] & data['MG-LV-MSB_AC_Voltage'].notnull()]
 frequency_anomalies = data[data['is_ensemble_anomaly'] & data['MG-LV-MSB_Frequency'].notnull()]
@@ -109,14 +105,14 @@ fig.add_trace(go.Scatter(
     name='Frequency Anomalies',
     marker=dict(size=9, color='red', line=dict(width=1, color='black')),
     text=[
-        f"Votes: {v}<br>Voltage: {val:.2f}<br>"
+        f"Votes: {v}<br>Freq: {freq:.2f}<br>"
         f"Iso Score: {iso:.4f}<br>SVM Score: {svm:.4f}<br>LOF Score: {lof:.4f}"
-        for v, val, iso, svm, lof in zip(
-            voltage_anomalies['ensemble_votes'],
-            voltage_anomalies['MG-LV-MSB_AC_Voltage'],
-            voltage_anomalies['iso_score'],
-            voltage_anomalies['svm_score'],
-            voltage_anomalies['lof_score']
+        for v, freq, iso, svm, lof in zip(
+            frequency_anomalies['ensemble_votes'],
+            frequency_anomalies['MG-LV-MSB_Frequency'],
+            frequency_anomalies['iso_score'],
+            frequency_anomalies['svm_score'],
+            frequency_anomalies['lof_score']
         )
     ],
     hoverinfo='text'
@@ -124,7 +120,7 @@ fig.add_trace(go.Scatter(
 
 fig.update_layout(
     height=800,
-    title='Hybrid Ensemble Voltage & Frequency Anomaly Detection',
+    title='Hybrid Ensemble Voltage & Frequency Anomaly Detection (with Scores)',
     showlegend=True,
     hovermode='x unified'
 )
