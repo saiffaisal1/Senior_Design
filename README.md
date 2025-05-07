@@ -9,8 +9,8 @@ The goal is to detect voltage and frequency anomalies in real-time to support au
 ---
 
 ## Directory Structure
-
-**├── Data/ # Raw and simulated CSV datasets
+```bash
+├── Data/ # Raw and simulated CSV datasets
 ├── model/ # Trained Isolation Forest model and scaler (.pkl)
 ├── alerts/ # Detected anomaly reports (CSV)
 ├── monitoring/
@@ -19,8 +19,8 @@ The goal is to detect voltage and frequency anomalies in real-time to support au
 ├── Training/
 │ ├── combine_data.py # combine all the CSVs into one big CSV
 │ └── train_model.py # Train and save Isolation Forest model
-└── README.md**
-
+└── README.md
+```
 ## Key Features
 
 -  Unsupervised anomaly detection using Isolation Forest
